@@ -42,14 +42,13 @@ main = run $ do
 
   -- tests
   light1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
-  light1 ^. position  >>= vector3ToXYZ >>= consoleLog . ms . show
-  camera1 ^. position  >>= vector3ToXYZ >>= consoleLog . ms . show
-  -- scene1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
+  light1 ^. position >>= vector3ToXYZ >>= consoleLog . ms . show
+  camera1 ^. position >>= vector3ToXYZ >>= consoleLog . ms . show
 
-  -- FIXME this should not compile:
-  -- scene1 ^. setIntensity 200
-  -- scene1 ^. setZ 200
-  -- scene1 ^. position ^. setXYZ 8 8 8
+  -- check compile errors
+  -- scene1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
+  scene1 ^. setIntensity 200    -- FIXME
+  scene1 ^. setZ 200    -- FIXME
 
   -- TODO ideally, we want something like:
   -- light1 & intensity .~ 200
