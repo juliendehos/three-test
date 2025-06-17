@@ -44,7 +44,11 @@ main = run $ do
   light1 & getIntensity >>= valToNumber >>= consoleLog . ms . show
   light1 & getPosition >>= vector3ToXYZ >>= consoleLog . ms . show
   camera1 & getPosition >>= vector3ToXYZ >>= consoleLog . ms . show
-  -- getIntensity scene1 >>= valToNumber >>= consoleLog . ms . show   -- should not compile
+
+  -- check compile errors
+  -- scene1 & getIntensity >>= valToNumber >>= consoleLog . ms . show
+  -- scene1 & setIntensity 200
+  -- scene1 & setZ 200
 
   pure ()
 
