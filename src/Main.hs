@@ -41,11 +41,10 @@ main = run $ do
   render renderer1 scene1 camera1
 
   -- tests
-  getIntensity light1 >>= valToNumber >>= consoleLog . ms . show
-  getPosition light1 >>= vector3ToXYZ >>= consoleLog . ms . show
+  light1 & getIntensity >>= valToNumber >>= consoleLog . ms . show
+  light1 & getPosition >>= vector3ToXYZ >>= consoleLog . ms . show
   camera1 & getPosition >>= vector3ToXYZ >>= consoleLog . ms . show
-  light1 & getMatrixWorld >>= matrix4Elements >>= consoleLog . ms . show
-  camera1 & getMatrixWorld >>= matrix4Elements >>= consoleLog . ms . show
+  -- getIntensity scene1 >>= valToNumber >>= consoleLog . ms . show   -- should not compile
 
   pure ()
 

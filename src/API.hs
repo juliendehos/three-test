@@ -3,30 +3,54 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+
 module API 
   ( Object3DC(..)
+
   , MaterialC(..)
-  , LightC(..)
-  , PointLight
-  , winInnerWidth
-  , winInnerHeight
-  , vector3ToXYZ
-  , valToNumber
-  , newScene
-  , newPointLight
+  , MeshLambertMaterial(..)
   , newMeshLambertMaterial
-  , newMesh
-  , newSphereGeometry
+
+  , LightC(..)
+  , PointLight(..)
+  , newPointLight
+
+  , CameraC
+  , PerspectiveCamera(..)
   , newPerspectiveCamera
-  , newWebGLRenderer
-  , setSize
+
+  , Vector3(..)
+  , newVector3
+  , vector3ToXYZ
   , setXYZ
   , setZ
-  , domElement
-  , appendInBody
+
+  , Mesh(..)
+  , newMesh
+
+  , Scene(..)
+  , newScene
+  , isScene
+
+  , BufferGeometryC(..)
+  , BufferGeometry(..)
+
+  , SphereGeometry(..)
+  , newSphereGeometry
+
+  , WebGLRenderer(..)
+  , newWebGLRenderer
   , render
-  , matrix4Elements
+  , domElement
+  , setSize
+
+  , winInnerWidth
+  , winInnerHeight
+  , appendInBody
+
+  , valToNumber
   ) where
+
 
 import Control.Monad
 import Control.Lens hiding ((#))
@@ -48,12 +72,10 @@ new' f name args = do
 class Object3DC a where
   add :: (Object3DC b, MakeArgs b) => a -> b -> JSM ()
   getPosition :: a -> JSM Vector3
-  getMatrixWorld :: a -> JSM Matrix4
 
 instance Object3DC JSVal where
   add v x = void $ v # ("add" :: JSString) $ x
   getPosition v = fromJSValUnchecked =<< v ! "position"
-  getMatrixWorld v = fromJSValUnchecked =<< v ! "matrixWorld"
 
 -------------------------------------------------------------------------------
 -- Scene
@@ -94,9 +116,6 @@ newtype PointLight = PointLight { unPointLight :: JSVal }
 
 newPointLight :: JSM PointLight
 newPointLight = new' PointLight "PointLight" ()
-
-distance :: PointLight -> JSM Double
-distance v = fromJSValUnchecked =<< v ! ("distance" :: JSString)
 
 -------------------------------------------------------------------------------
 -- Material
@@ -223,19 +242,6 @@ vector3ToXYZ (Vector3 v) = do
   y <- fromJSValUnchecked =<< v ! "y"
   z <- fromJSValUnchecked =<< v ! "z"
   pure (x, y, z)
-
--------------------------------------------------------------------------------
--- Matrix4
--------------------------------------------------------------------------------
-
-newtype Matrix4 = Matrix4 { unMatrix4 :: JSVal }
-  deriving (MakeObject, ToJSVal, MakeArgs)
-
-instance FromJSVal Matrix4 where
-  fromJSVal = pure .Just . Matrix4
-
-matrix4Elements :: Matrix4 -> JSM [Double]
-matrix4Elements (Matrix4 v) = fromJSValUnchecked =<< v ! "elements"
 
 -------------------------------------------------------------------------------
 -- helpers
