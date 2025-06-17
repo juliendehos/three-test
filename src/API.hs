@@ -3,32 +3,57 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+
 module API 
   ( Object3DC(..)
-  , MaterialC(..)
-  , LightC(..)
-  , PointLight
-  , winInnerWidth
-  , winInnerHeight
-  , valToXYZ
-  , valToNumber
-  , newScene
-  , setIntensity
-  , newPointLight
   , position
-  , intensity
+
+  , MaterialC(..)
+  , MeshLambertMaterial(..)
   , newMeshLambertMaterial
-  , newMesh
-  , newSphereGeometry
+
+  , LightC(..)
+  , PointLight(..)
+  , newPointLight
+  , intensity
+  , setIntensity
+
+  , CameraC
+  , PerspectiveCamera(..)
   , newPerspectiveCamera
-  , newWebGLRenderer
-  , setSize
+
+  , Vector3(..)
+  , newVector3
+  , vector3ToXYZ
   , setXYZ
   , setZ
-  , domElement
-  , appendInBody
+
+  , Mesh(..)
+  , newMesh
+
+  , Scene(..)
+  , newScene
+  , isScene
+
+  , BufferGeometryC(..)
+  , BufferGeometry(..)
+
+  , SphereGeometry(..)
+  , newSphereGeometry
+
+  , WebGLRenderer(..)
+  , newWebGLRenderer
   , render
+  , domElement
+  , setSize
+
+  , winInnerWidth
+  , winInnerHeight
+  , appendInBody
+
+  , valToNumber
   ) where
+
 
 import Control.Monad
 import Control.Lens hiding ((#))
@@ -43,8 +68,8 @@ new' f name args = do
   v <- jsg ("THREE" :: JSString) ! name
   f <$> J.new v args
 
-valToXYZ :: JSVal -> JSM (Double, Double, Double)
-valToXYZ v = do
+vector3ToXYZ :: JSVal -> JSM (Double, Double, Double)
+vector3ToXYZ v = do
   x <- fromJSValUnchecked =<< v ! "x"
   y <- fromJSValUnchecked =<< v ! "y"
   z <- fromJSValUnchecked =<< v ! "z"
@@ -56,11 +81,9 @@ valToXYZ v = do
 
 class Object3DC object where
   add :: (Object3DC a, MakeArgs a) => object -> a -> JSM ()
-  -- position :: object -> JSM Vector3
 
 instance Object3DC JSVal where
   add v x = void $ v # ("add" :: JSString) $ x
-  -- position v = fromJSValUnchecked =<< v ! "position"
 
 position :: (Object3DC a, MakeObject a) => (JSM JSVal -> Const (JSM JSVal) (JSM JSVal)) -> a -> Const (JSM JSVal) a
 position = js "position"
@@ -85,18 +108,15 @@ isScene v = fromJSValUnchecked =<< v ! ("isScene" :: JSString)
 
 class Object3DC a => LightC a where
   isLight :: a -> JSM Bool
-  -- intensity :: a -> JSM Double
 
 instance LightC JSVal where
   isLight v = fromJSValUnchecked =<< v ! ("isLight" :: JSString)
-  -- intensity v = fromJSValUnchecked =<< v ! ("intensity" :: JSString)
 
 intensity :: (LightC a, MakeObject a) => (JSM JSVal -> Const (JSM JSVal) (JSM JSVal)) -> a -> Const (JSM JSVal) a
 intensity = js "intensity"
 
--- TODO add a "LightC a" constraint
-setIntensity :: Double -> forall a. MakeObject a => IndexPreservingGetter a (JSM ())
-setIntensity = jss "intensity"
+setIntensity :: Double -> forall o. MakeObject o => IndexPreservingGetter o (JSM ())
+setIntensity = jss "intensity" 
 
 -------------------------------------------------------------------------------
 -- PointLight
@@ -106,12 +126,10 @@ newtype PointLight = PointLight { unPointLight :: JSVal }
   deriving (MakeArgs, MakeObject, ToJSVal) 
   deriving newtype (LightC)
   deriving Object3DC via JSVal
+  -- deriving (LightC, Object3DC) via JSVal
 
 newPointLight :: JSM PointLight
 newPointLight = new' PointLight "PointLight" ()
-
-distance :: PointLight -> JSM Double
-distance v = fromJSValUnchecked =<< v ! ("distance" :: JSString)
 
 -------------------------------------------------------------------------------
 -- Material
@@ -248,5 +266,4 @@ winInnerWidth = valToNumber =<< jsg "window"  ^. js "innerWidth"
 
 winInnerHeight :: JSM Double
 winInnerHeight = valToNumber =<< jsg "window"  ^. js "innerHeight"
-
 

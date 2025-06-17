@@ -40,7 +40,13 @@ main = run $ do
   domElement renderer1 >>= appendInBody 
   render renderer1 scene1 camera1
 
-  -- TODO this shouldn't compile:
+  -- tests
+  light1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
+  light1 ^. position  >>= vector3ToXYZ >>= consoleLog . ms . show
+  camera1 ^. position  >>= vector3ToXYZ >>= consoleLog . ms . show
+  -- scene1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
+
+  -- FIXME this should not compile:
   -- scene1 ^. setIntensity 200
   -- scene1 ^. setZ 200
   -- scene1 ^. position ^. setXYZ 8 8 8
@@ -50,8 +56,5 @@ main = run $ do
   -- light1 & position . _xyz .~ V3 8 8 8
   -- camera1 & position . _z .~ 6 
 
-  -- tests
-  light1 ^. intensity >>= valToNumber >>= consoleLog . ms . show
-  light1 ^. position  >>= valToXYZ >>= consoleLog . ms . show
-  camera1 ^. position  >>= valToXYZ >>= consoleLog . ms . show
+  pure ()
 
