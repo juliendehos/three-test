@@ -3,11 +3,6 @@
 -- JS to Haskell rules:
 -- - if a JS class can be inherited -> define a Haskell typeclass
 -- - if a JS class can be instanciated -> define a Haskell newtype
---
--- properties:
--- - Prop / mkProp for properties
--- - OptProp / mkOptProp for optional properties
--- - Ro / mkRo for read-only properties
 -------------------------------------------------------------------------------
 
 {-# LANGUAGE DerivingVia #-}
@@ -26,7 +21,8 @@ module API
   , MaterialC(..)
   , MeshLambertMaterial(..)
   , newMeshLambertMaterial
-  , mapOptProp
+  , getMatOpt
+  , setMat
 
   , LightC(..)
   , PointLight(..)
@@ -37,22 +33,23 @@ module API
   , newPerspectiveCamera
 
   , Euler(..)
-  , yRotProp
+  , getYRot
+  , setYRot
+  , modifyYRot
 
   , Vector3(..)
   , newVector3
   , vector3ToXYZ
   , setXYZ
-  , xProp
-  , yProp
-  , zProp
+  , getZ
+  , setZ
 
   , Mesh(..)
   , newMesh
 
   , Scene(..)
   , newScene
-  , isSceneRo
+  , isScene
 
   , BufferGeometryC(..)
   , BufferGeometry(..)
@@ -75,10 +72,6 @@ module API
   , appendInBody
 
   , valToNumber
-  , getProp
-  , setProp
-  , modifyProp
-  , modifyOptProp
   ) where
 
 import Control.Monad
@@ -107,51 +100,31 @@ new' f name args = do
   v <- jsg ("THREE" :: JSString) ! name
   f <$> J.new v args
 
--- define/construct a property
-type Prop a b = a -> Maybe b -> JSM b
+mkGetOpt :: (MakeObject a, FromJSVal b) => JSString -> a -> JSM (Maybe b)
+mkGetOpt name v = fromJSVal =<< v ! name
 
-mkProp :: (MakeObject a, FromJSVal b, ToJSVal b) => JSString -> Prop a b
-mkProp name v mx1 = do
-  x0 <- fromJSValUnchecked =<< v ! name
-  case mx1 of
-    Nothing -> pure x0
-    Just x1 -> v ^. jss name x1 >> pure x1
+mkGet :: (MakeObject a, FromJSVal b) => JSString -> a -> JSM b
+mkGet name v = fromJSValUnchecked =<< v ! name
 
--- define/construct an optional property
-type OptProp a b = a -> Maybe b -> JSM (Maybe b)
+mkSet :: (MakeObject a, ToJSVal b) => JSString -> b -> a -> JSM ()
+mkSet name x v = v ^. jss name x
 
-mkOptProp :: (MakeObject a, FromJSVal b, ToJSVal b) => JSString -> OptProp a b
-mkOptProp name v mx1 = do
-  mx0 <- fromJSVal =<< v ! name
-  case mx1 of
-    Nothing -> pure mx0
-    Just x1 -> v ^. jss name x1 >> pure Nothing
-
--- get/set/modify a property or an optional property
-getProp :: (a -> Maybe b -> JSM c) -> a -> JSM c
-getProp prop v = prop v Nothing
-
-setProp :: (a -> Maybe b -> JSM c) -> b -> a -> JSM ()
-setProp prop x v = void $ prop v (Just x)
-
-modifyProp :: Prop a b -> (b -> JSM b) -> a -> JSM ()
-modifyProp prop f v = do
-  x <- getProp prop v
+mkModify :: (MakeObject a, ToJSVal b, FromJSVal b) => JSString -> (b -> JSM b) -> a -> JSM b
+mkModify name f v = do
+  x <- fromJSValUnchecked =<< v ! name
   y <- f x
-  setProp prop y v
+  v ^. jss name y
+  pure y
 
-modifyOptProp :: OptProp a b -> (b -> JSM b) -> a -> JSM ()
-modifyOptProp prop f v = do
-  mx <- getProp prop v
-  forM_ mx $ \x -> do
-    y <- f x
-    setProp prop y v
-
--- read-only property (can be read directly)
-type Ro a b = a -> JSM b
-
-mkRo :: (MakeObject a, FromJSVal b) => JSString -> Ro a b
-mkRo name v = fromJSValUnchecked =<< v ! name
+mkModifyOpt :: (MakeObject a, ToJSVal b, FromJSVal b) => JSString -> (b -> JSM b) -> a -> JSM (Maybe b)
+mkModifyOpt name f v = do
+  mx <- fromJSVal =<< v ! name
+  case mx of
+    Nothing -> pure Nothing
+    Just x -> do
+      y <- f x
+      v ^. jss name y
+      pure $ Just y
 
 -------------------------------------------------------------------------------
 -- Object3D
@@ -159,14 +132,16 @@ mkRo name v = fromJSValUnchecked =<< v ! name
 
 class Object3DC a where
   -- properties
-  positionProp :: Prop a Vector3
-  rotationProp :: Prop a Euler
+  getPosition :: a -> JSM Vector3
+  setPosition :: Vector3 -> a -> JSM ()
+  getRotation :: a -> JSM Euler
   -- methods
   add :: (Object3DC b, MakeArgs b) => a -> b -> JSM ()
 
 instance Object3DC JSVal where
-  positionProp = mkProp "position"
-  rotationProp = mkProp "rotation"
+  getPosition = mkGet "position"
+  setPosition = mkSet "position"
+  getRotation = mkGet "rotation"
   add v x = void $ v # ("add" :: JSString) $ x
 
 -------------------------------------------------------------------------------
@@ -181,8 +156,8 @@ newScene :: JSM Scene
 newScene = new' Scene "Scene" ()
 
 -- read-only properties
-isSceneRo :: Ro Scene Bool
-isSceneRo = mkRo "isScene"
+isScene :: Scene -> JSM Bool
+isScene = mkGet "isScene"
 
 -------------------------------------------------------------------------------
 -- Light
@@ -190,13 +165,17 @@ isSceneRo = mkRo "isScene"
 
 class Object3DC a => LightC a where
 -- read-only properties
-  isLightRo :: a -> JSM Bool
+  isLight :: a -> JSM Bool
   -- properties
-  intensityProp :: Prop a Double
+  getIntensity :: a -> JSM Double
+  setIntensity :: Double -> a -> JSM ()
+  modifyIntensity :: (Double -> JSM Double) -> a -> JSM Double
 
 instance LightC JSVal where
-  isLightRo = mkRo "isLight"
-  intensityProp = mkProp "intensity"
+  isLight = mkGet "isLight"
+  getIntensity = mkGet "intensity"
+  setIntensity = mkSet "intensity"
+  modifyIntensity = mkModify "intensity"
 
 -------------------------------------------------------------------------------
 -- PointLight
@@ -215,10 +194,10 @@ newPointLight = new' PointLight "PointLight" ()
 -------------------------------------------------------------------------------
 
 class MaterialC a where
-  isMaterialRo :: Ro a Bool
+  isMaterial:: a -> JSM Bool
 
 instance MaterialC JSVal where
-  isMaterialRo = mkRo "isMaterial"
+  isMaterial = mkGet "isMaterial"
 
 -------------------------------------------------------------------------------
 -- MeshLambertMaterial
@@ -232,8 +211,11 @@ newMeshLambertMaterial :: JSM MeshLambertMaterial
 newMeshLambertMaterial = new' MeshLambertMaterial "MeshLambertMaterial" ()
 
 -- optional properties
-mapOptProp :: OptProp MeshLambertMaterial Texture
-mapOptProp = mkOptProp "map"
+getMatOpt :: MeshLambertMaterial -> JSM (Maybe Texture)
+getMatOpt = mkGetOpt "map"
+
+setMat :: Texture -> MeshLambertMaterial -> JSM ()
+setMat = mkSet "map"
 
 -------------------------------------------------------------------------------
 -- Texture
@@ -265,10 +247,10 @@ load url (TextureLoader v) = Texture <$> (v # ("load" :: JSString) $ [url])
 
 class BufferGeometryC a where
   -- read-only properties
-  isBufferGeometryRo :: Ro a Bool
+  isBufferGeometry :: a -> JSM Bool
 
 instance BufferGeometryC JSVal where
-  isBufferGeometryRo = mkRo "isBufferGeometry"
+  isBufferGeometry = mkGet "isBufferGeometry"
 
 newtype BufferGeometry = BufferGeometry { unBufferGeometry :: JSVal }
   deriving (MakeArgs, MakeObject, ToJSVal) 
@@ -313,10 +295,10 @@ newMesh geometry' material' = new' Mesh "Mesh" (geometry', material')
 
 class Object3DC a => CameraC a where
   -- read-only properties
-  isCameraRo :: Ro a Bool
+  isCamera :: a -> JSM Bool
 
 instance CameraC JSVal where
-  isCameraRo = mkRo "isCamera"
+  isCamera = mkGet "isCamera"
 
 -------------------------------------------------------------------------------
 -- PerspectiveCamera
@@ -365,8 +347,14 @@ instance FromJSVal Euler where
   fromJSVal = pure .Just . Euler
 
 -- properties
-yRotProp :: Prop Euler Double
-yRotProp = mkProp "y"
+getYRot :: Euler -> JSM Double
+getYRot = mkGet "y"
+
+setYRot :: Double -> Euler -> JSM ()
+setYRot = mkSet "y"
+
+modifyYRot :: (Double -> JSM Double) -> Euler -> JSM Double
+modifyYRot = mkModify "y"
 
 -------------------------------------------------------------------------------
 -- Vector3
@@ -382,10 +370,11 @@ newVector3 :: Double -> Double -> Double -> JSM Vector3
 newVector3 x y z = new' Vector3 "Vector3" (x, y, z)
 
 -- properties
-xProp, yProp, zProp :: Prop Vector3 Double
-xProp = mkProp "x"
-yProp = mkProp "y"
-zProp = mkProp "z"
+getZ :: Vector3 -> JSM Double
+getZ = mkGet "z"
+
+setZ :: Double -> Vector3 -> JSM ()
+setZ = mkSet "z"
 
 -- methods
 setXYZ :: Double -> Double -> Double -> Vector3 -> JSM ()
