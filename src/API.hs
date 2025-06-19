@@ -14,6 +14,23 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+module API where
+
+import Control.Monad
+import Control.Lens hiding ((#))
+import Language.Javascript.JSaddle as J hiding (getProp, setProp)
+
+appendInBody :: JSVal -> JSM ()
+appendInBody v = void $ jsg "document" ^. js "body" ^. js1 "appendChild" v
+
+winInnerWidth :: JSM Double
+winInnerWidth = valToNumber =<< jsg "window"  ^. js "innerWidth"
+
+winInnerHeight :: JSM Double
+winInnerHeight = valToNumber =<< jsg "window"  ^. js "innerHeight"
+
+{-
+
 module API 
   ( Object3DC(..)
 
@@ -397,4 +414,6 @@ vector3ToXYZ (Vector3 v) = do
   y <- fromJSValUnchecked =<< v ! "y"
   z <- fromJSValUnchecked =<< v ! "z"
   pure (x, y, z)
+
+-}
 
