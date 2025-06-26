@@ -11,8 +11,8 @@ source-repository-package
 
 source-repository-package
   type: git
-  -- location: https://github.com/three-hs/three.hs
-  -- branch: master
-  location: https://github.com/juliendehos/three
-  tag: a13030d
+  location: https://github.com/three-hs/three.hs
+  branch: master
+  -- location: https://github.com/juliendehos/three.hs
+  -- tag: a13030d
 
